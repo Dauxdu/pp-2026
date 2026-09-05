@@ -1,3 +1,10 @@
+/**
+ * @file main.cpp
+ * @brief Последовательный бэкенд для аудита паролей.
+ *
+ * Выполняет перебор кандидатов в одном потоке, хэширует их и проверяет наличие совпадений в целевом индексе.
+ */
+
 #include "../audit.hpp"
 #include "../sha256.hpp"
 
@@ -5,66 +12,102 @@
 #include <iostream>
 #include <string>
 
-namespace
+/**
+ * @struct CliArgs
+ * @brief Структура для хранения аргументов командной строки.
+ */
+struct CliArgs
 {
-    struct CliArgs
-    {
-        std::string config_path;
-        std::string output_path = "result.json";
-    };
+    std::string config_path;                 ///< Путь к файлу конфигурации config.json
+    std::string output_path = "result.json"; ///< Путь для сохранения выходного JSON-файла
+};
 
-    CliArgs parse_args(int argc, char **argv)
+/**
+ * @brief Разбирает аргументы командной строки.
+ * @param argc Количество аргументов.
+ * @param argv Массив указателей на аргументы.
+ * @return Заполненная структура CliArgs с параметрами запуска.
+ * @throws std::runtime_error Если не передан обязательный параметр --config.
+ */
+CliArgs parse_args(int argc, char **argv)
+{
+    CliArgs args;
+    for (int i = 1; i < argc; ++i)
     {
-        CliArgs args;
-        for (int i = 1; i < argc; ++i)
+        const std::string arg = argv[i];
+        if (arg == "--config" && i + 1 < argc)
         {
-            const std::string arg = argv[i];
-            if (arg == "--config" && i + 1 < argc)
-                args.config_path = argv[++i];
-            else if (arg == "--output" && i + 1 < argc)
-                args.output_path = argv[++i];
+            args.config_path = argv[++i];
         }
-        if (args.config_path.empty())
-            throw std::runtime_error(
-                std::string("usage: ") + argv[0] + " --config <config.json> [--output <result.json>]");
-        return args;
+        else if (arg == "--output" && i + 1 < argc)
+        {
+            args.output_path = argv[++i];
+        }
     }
 
-    AuditResult run_audit(const AuditConfig &config, const TargetIndex &targets)
+    if (args.config_path.empty())
     {
-        AuditResult result;
-        result.backend = "seq";
-        result.size_code = config.size_code;
-        result.hash_type = config.hash_type;
-        result.iterations = config.iterations;
-        result.range_begin = config.range_begin;
-        result.range_end = config.range_end;
-
-        CandidateCounter counter(config.charset, config.password_length, config.range_begin);
-        Stopwatch stopwatch;
-        stopwatch.start();
-
-        for (std::uint64_t index = config.range_begin; index < config.range_end; ++index)
-        {
-            const std::string password = counter.password();
-            const std::string hash = hash_password(config.salt, password, config.iterations);
-
-            if (const int *id = targets.find(hash))
-                result.matches.push_back({*id, password, hash});
-
-            counter.advance();
-        }
-
-        result.time_seconds = stopwatch.elapsed_seconds();
-        result.candidates_checked = config.candidate_count();
-        std::sort(result.matches.begin(), result.matches.end(),
-                  [](const Match &a, const Match &b)
-                  { return a.id < b.id; });
-        return result;
+        throw std::runtime_error(std::string("использование: ") + argv[0] + " --config <config.json> [--output <result.json>]");
     }
 
-} // namespace
+    return args;
+}
 
+/**
+ * @brief Основная функция последовательного перебора паролей.
+ *
+ * Проходит по всему выделенному диапазону индексов, генерирует пароли,
+ * вычисляет их хэши и ищет совпадения в индексе целей.
+ *
+ * @param config Конфигурация аудита.
+ * @param targets Индекс искомых хэшей.
+ * @return Результат аудита AuditResult со списком совпадений и метриками.
+ */
+AuditResult run_audit(const AuditConfig &config, const TargetIndex &targets)
+{
+    AuditResult result;
+    result.backend = "seq";
+    result.size_code = config.size_code;
+    result.hash_type = config.hash_type;
+    result.iterations = config.iterations;
+    result.range_begin = config.range_begin;
+    result.range_end = config.range_end;
+    result.num_threads = 1;
+
+    CandidateCounter counter(config.charset, config.password_length, config.range_begin);
+    Stopwatch stopwatch;
+    stopwatch.start();
+
+    for (std::uint64_t index = config.range_begin; index < config.range_end; ++index)
+    {
+        const std::string password = counter.password();
+        const std::string hash = hash_password(config.salt, password, config.iterations);
+
+        if (const int *id = targets.find(hash))
+        {
+            result.matches.push_back({*id, password, hash});
+        }
+
+        counter.advance();
+    }
+
+    result.time_seconds = stopwatch.elapsed_seconds();
+    result.candidates_checked = config.candidate_count();
+
+    // Сортировка найденных совпадений по возрастанию ID
+    std::sort(result.matches.begin(), result.matches.end(),
+              [](const Match &a, const Match &b)
+              { return a.id < b.id; });
+
+    return result;
+}
+
+/**
+ * @brief Точка входа в программу.
+ * @param argc Количество аргументов командной строки.
+ * @param argv Массив аргументов командной строки.
+ * @return Идентификатор статуса завершения (0 — успешно, 1 — ошибка).
+ */
 int main(int argc, char **argv)
 {
     try
@@ -83,8 +126,9 @@ int main(int argc, char **argv)
     }
     catch (const std::exception &e)
     {
-        std::cerr << "Error: " << e.what() << "\n";
+        std::cerr << "Ошибка: " << e.what() << "\n";
         return 1;
     }
+
     return 0;
 }
