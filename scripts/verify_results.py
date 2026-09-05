@@ -1,33 +1,11 @@
 #!/usr/bin/env python3
-"""Verify a computed audit result against the expected (ground-truth) dataset."""
-
 from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-
-
-@dataclass(frozen=True)
-class Args:
-    config: Path
-    expected: Path
-    result: Path
-
-
-def parse_args() -> Args:
-    parser = argparse.ArgumentParser(description="Verify audit results")
-    parser.add_argument("--config", type=Path, required=True)
-    parser.add_argument("--expected", type=Path, required=True)
-    parser.add_argument("--result", type=Path, required=True)
-    ns = parser.parse_args()
-    return Args(config=ns.config, expected=ns.expected, result=ns.result)
-
-
-def load_json(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
+from typing import Iterator
 
 
 def load_jsonl(path: Path) -> Iterator[dict]:
@@ -38,18 +16,32 @@ def load_jsonl(path: Path) -> Iterator[dict]:
                 yield json.loads(line)
 
 
+@dataclass
+class VerificationReport:
+    errors: list[str]
+
+    @property
+    def ok(self) -> bool:
+        return not self.errors
+
+    def print(self) -> None:
+        if self.ok:
+            print("VERIFICATION OK")
+            return
+        print("VERIFICATION FAILED")
+        for error in self.errors:
+            print(f"- {error}")
+
+
 def check_candidate_count(config: dict, result: dict) -> list[str]:
-    expected_count = config["range_end"] - config["range_begin"]
-    actual_count = result.get("candidates_checked")
-    if actual_count != expected_count:
-        return [
-            f"candidates_checked mismatch: expected {expected_count}, got {actual_count}"
-        ]
+    expected = config["range_end"] - config["range_begin"]
+    actual = result.get("candidates_checked")
+    if actual != expected:
+        return [f"candidates_checked mismatch: expected {expected}, got {actual}"]
     return []
 
 
 def check_matches(expected: dict[int, dict], result: dict) -> list[str]:
-    """Compare found matches against the expected id -> {password, hash} records."""
     matches = result.get("matches", [])
     found = {m["id"]: m for m in matches}
     errors = []
@@ -61,14 +53,14 @@ def check_matches(expected: dict[int, dict], result: dict) -> list[str]:
             f"matches count mismatch: expected {len(expected)}, got {len(found)}"
         )
 
-    for target_id, exp in expected.items():
+    for target_id, target in expected.items():
         match = found.get(target_id)
         if match is None:
             errors.append(f"id {target_id} not found")
             continue
-        if match.get("password") != exp["password"]:
+        if match.get("password") != target["password"]:
             errors.append(f"id {target_id}: password mismatch")
-        if match.get("hash") != exp["hash"]:
+        if match.get("hash") != target["hash"]:
             errors.append(f"id {target_id}: hash mismatch")
 
     unexpected_ids = found.keys() - expected.keys()
@@ -76,21 +68,29 @@ def check_matches(expected: dict[int, dict], result: dict) -> list[str]:
     return errors
 
 
+def verify(config: dict, expected: dict[int, dict], result: dict) -> VerificationReport:
+    errors = check_candidate_count(config, result) + check_matches(expected, result)
+    return VerificationReport(errors)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Verify audit results")
+    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--expected", type=Path, required=True)
+    parser.add_argument("--result", type=Path, required=True)
+    return parser.parse_args()
+
+
 def main() -> None:
     args = parse_args()
-    config = load_json(args.config)
+    config = json.loads(args.config.read_text(encoding="utf-8"))
     expected = {item["id"]: item for item in load_jsonl(args.expected)}
-    result = load_json(args.result)
+    result = json.loads(args.result.read_text(encoding="utf-8"))
 
-    errors = check_candidate_count(config, result) + check_matches(expected, result)
-
-    if errors:
-        print("VERIFICATION FAILED")
-        for error in errors:
-            print(f"- {error}")
+    report = verify(config, expected, result)
+    report.print()
+    if not report.ok:
         raise SystemExit(1)
-
-    print("VERIFICATION OK")
 
 
 if __name__ == "__main__":
