@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a synthetic password/hash dataset for educational purposes."""
+"""Генерация синтетического датасета паролей и хэшей для образовательных целей."""
 
 from __future__ import annotations
 
@@ -11,18 +11,16 @@ from contextlib import ExitStack
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-DEFAULT_CHARSET = "abcdefghijklmnopqrstuvwxyz0123456789"
-
 
 @dataclass(frozen=True)
 class Config:
-    """All parameters needed to reproduce a dataset."""
+    """Все параметры, необходимые для воспроизведения датасета."""
 
     out: Path = Path("data/size_200")
     range_begin: int = 0
     range_end: int = 20_000_000
     password_length: int = 8
-    charset: str = DEFAULT_CHARSET
+    charset: str = "abcdefghijklmnopqrstuvwxyz0123456789"
     iterations: int = 1
     salt: str = "edu-salt-2026"
     targets: int = 16
@@ -31,18 +29,20 @@ class Config:
 
     @property
     def password_space(self) -> int:
+        """Общее пространство возможных паролей."""
         return len(self.charset) ** self.password_length
 
     def validate(self) -> None:
+        """Проверка корректности параметров конфигурации."""
         if self.range_end <= self.range_begin:
-            raise ValueError("range-end must be greater than range-begin")
+            raise ValueError("range-end должен быть больше, чем range-begin")
         if not 0 < self.targets <= self.range_end - self.range_begin:
-            raise ValueError("invalid number of targets")
+            raise ValueError("недопустимое количество искомых хэшей (targets)")
         if self.range_end > self.password_space:
-            raise ValueError("range-end is larger than password space")
+            raise ValueError("range-end превышает общее пространство паролей")
 
     def as_json_dict(self) -> dict:
-        """Config fields to persist, excluding None values and the output path."""
+        """Поля конфигурации для сохранения, исключая значения None и путь вывода."""
         data = {k: v for k, v in asdict(self).items() if k != "out" and v is not None}
         return {
             "version": 1,
@@ -53,10 +53,12 @@ class Config:
 
 
 def index_to_password(index: int, length: int, charset: str) -> str:
-    """Map an integer index to a password via base-N encoding over the charset."""
+    """Преобразование числового индекса в пароль через N-ичное кодирование по алфавиту."""
     base = len(charset)
     if not 0 <= index < base**length:
-        raise ValueError("index out of range for given length/charset")
+        raise ValueError(
+            "индекс выходит за пределы допустимого диапазона для данной длины/алфавита"
+        )
 
     chars: list[str] = []
     for _ in range(length):
@@ -66,7 +68,7 @@ def index_to_password(index: int, length: int, charset: str) -> str:
 
 
 def hash_password(password: str, salt: str, iterations: int) -> str:
-    """Salted, iterated SHA-256 hash of a password."""
+    """Хэширование пароля с солью и итерациями с использованием SHA-256."""
     digest = hashlib.sha256((salt + password).encode("utf-8")).digest()
     for _ in range(iterations - 1):
         digest = hashlib.sha256(digest).digest()
@@ -75,6 +77,8 @@ def hash_password(password: str, salt: str, iterations: int) -> str:
 
 @dataclass(frozen=True)
 class Target:
+    """Искомая цель: структура для хранения сгенерированного пароля и его хэша."""
+
     id: int
     index: int
     password: str
@@ -82,7 +86,7 @@ class Target:
 
 
 def build_targets(config: Config) -> list[Target]:
-    """Pick random indices in range and turn them into password/hash records."""
+    """Выбор случайных индексов в диапазоне и их преобразование в записи паролей/хэшей."""
     rng = random.Random(config.seed)
     indices = sorted(
         rng.sample(range(config.range_begin, config.range_end), config.targets)
@@ -96,7 +100,7 @@ def build_targets(config: Config) -> list[Target]:
 
 
 def write_dataset(config: Config, targets: list[Target]) -> None:
-    """Write targets.jsonl, expected.jsonl and config.json to config.out."""
+    """Запись файлов targets.jsonl, expected.jsonl и config.json в директорию config.out."""
     config.out.mkdir(parents=True, exist_ok=True)
 
     with ExitStack() as stack:
@@ -128,8 +132,9 @@ def write_dataset(config: Config, targets: list[Target]) -> None:
 
 
 def parse_args() -> Config:
+    """Парсинг аргументов командной строки."""
     defaults = Config()
-    parser = argparse.ArgumentParser(description="Generate synthetic dataset")
+    parser = argparse.ArgumentParser(description="Генерация синтетического датасета")
     parser.add_argument("--out", type=Path, default=defaults.out)
     parser.add_argument("--range-begin", type=int, default=defaults.range_begin)
     parser.add_argument("--range-end", type=int, default=defaults.range_end)
@@ -168,8 +173,8 @@ def main() -> None:
 
     candidate_count = config.range_end - config.range_begin
     print(
-        f"Generated: {config.out} "
-        f"(candidates={candidate_count}, targets={config.targets})"
+        f"Сгенерировано: {config.out} "
+        f"(кандидатов={candidate_count}, искомых хэшей={config.targets})"
     )
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect result_*.json files into a CSV and render time/throughput plots."""
+"""Собирает файлы результатов result_*.json в один CSV-файл и строит графики времени/производительности."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 @dataclass(frozen=True)
 class RunResult:
-    """One row of the CSV: a single backend/size measurement."""
+    """Одна строка CSV: единичное измерение для конкретного бэкенда и размера задачи."""
 
     size_code: int
     candidates: int
@@ -30,6 +30,7 @@ class RunResult:
         data = json.loads(path.read_text(encoding="utf-8"))
         size_code = data.get("size_code")
         if size_code is None:
+            # Если в JSON нет size_code, извлекаем его из имени файла (например, size_4.json)
             size_code = int(path.stem.split("_")[1])
         return cls(
             size_code=size_code,
@@ -41,11 +42,14 @@ class RunResult:
 
 
 def load_results(results_dir: Path) -> list[RunResult]:
+    # Ищем файлы, соответствующие шаблону size_*.json
     results = [
         RunResult.from_file(path) for path in sorted(results_dir.glob("size_*.json"))
     ]
     if not results:
-        raise SystemExit(f"no size_*.json files found in {results_dir}")
+        raise SystemExit(
+            f"Файлы типа size_*.json не найдены в директории {results_dir}"
+        )
     return sorted(results, key=lambda r: r.size_code)
 
 
@@ -55,7 +59,7 @@ def write_csv(results: list[RunResult], path: Path) -> None:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(vars(r) for r in results)
-    print(f"Saved: {path}")
+    print(f"Сохранено: {path}")
 
 
 def save_line_plot(
@@ -68,7 +72,7 @@ def save_line_plot(
     color: str,
     path: Path,
 ) -> None:
-    """One shared plotting routine for every time/throughput chart (DRY)."""
+    """Общая функция для построения линейных графиков времени и производительности (DRY)."""
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.plot(x, y, marker="o", linewidth=2, color=color)
     ax.set_xlabel(xlabel)
@@ -78,38 +82,41 @@ def save_line_plot(
     fig.tight_layout()
     fig.savefig(path, dpi=300)
     plt.close(fig)
-    print(f"Saved: {path}")
+    print(f"Сохранено: {path}")
 
 
 def plot_results(results: list[RunResult], figures_dir: Path) -> None:
     candidates_millions = [r.candidates / 1e6 for r in results]
 
+    # График зависимости времени выполнения от размера задачи
     save_line_plot(
         candidates_millions,
         [r.time_seconds for r in results],
-        xlabel="Number of candidates, millions",
-        ylabel="Time, seconds",
-        title="Lab 1: sequential execution time vs task size",
+        xlabel="Количество кандидатов, млн",
+        ylabel="Время, сек",
+        title="Время последовательного выполнения vs Размер задачи",
         color="tab:blue",
-        path=figures_dir / "lab1_time_by_size.png",
+        path=figures_dir / "time_by_size.png",
     )
+
+    # График зависимости производительности от размера задачи
     save_line_plot(
         candidates_millions,
         [r.throughput_per_second / 1e6 for r in results],
-        xlabel="Number of candidates, millions",
-        ylabel="Throughput, millions candidates/sec",
-        title="Lab 1: sequential throughput vs task size",
+        xlabel="Количество кандидатов, млн",
+        ylabel="Производительность, млн канд/сек",
+        title="Последовательная производительность vs Размер задачи",
         color="tab:green",
-        path=figures_dir / "lab1_throughput_by_size.png",
+        path=figures_dir / "throughput_by_size.png",
     )
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Collect lab results and build plots")
-    parser.add_argument("--results-dir", type=Path, default=Path("results/seq"))
-    parser.add_argument(
-        "--figures-dir", type=Path, default=Path("reports/lab_01/figures")
+    parser = argparse.ArgumentParser(
+        description="Сбор результатов лабораторной работы и построение графиков"
     )
+    parser.add_argument("--results-dir", type=Path)
+    parser.add_argument("--figures-dir", type=Path)
     return parser.parse_args()
 
 
@@ -117,6 +124,7 @@ def main() -> None:
     args = parse_args()
     results = load_results(args.results_dir)
 
+    # Создаем директории, если они еще не существуют, и записываем данные
     args.results_dir.mkdir(parents=True, exist_ok=True)
     write_csv(results, args.results_dir / "results.csv")
 

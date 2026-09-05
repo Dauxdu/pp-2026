@@ -23,8 +23,8 @@ help:
 	@echo "Доступные команды:"
 	@sed -n 's/^## //p' $(MAKEFILE_LIST) | column -t -s ':'
 
-## all: Полный цикл на малом разбере (1-32)
-all: configure build generate_data start_small generate_plots
+## all: Полный цикл на малом наборе (1-32)
+all: configure build generate_data start_all generate_plots
 
 ## configure: Сконфигурировать CMake-проект через vcpkg (нужен VCPKG_ROOT).
 configure:
