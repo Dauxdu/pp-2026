@@ -1,0 +1,94 @@
+{
+  "candidates_checked": 204800000,
+  "config_file": "/home/dauxdu/Documents/github/pp-2026/data/size_2048/config.json",
+  "hash_type": "sha256",
+  "iterations": 1,
+  "matches": [
+    {
+      "hash": "da05a47ea6627401a9360d9ccad394d06be78a7ec8b4d9a520de0b8e94ffad24",
+      "id": 1,
+      "password": "aaad96nz"
+    },
+    {
+      "hash": "67cd1f2e94e586882a82a3524cf2d33b9f174592abc7d60f8b0ee91988b747c4",
+      "id": 2,
+      "password": "aaan6hk6"
+    },
+    {
+      "hash": "f16ff21dd3e0081913ecd807165d4b61db68a8916d15f5b1522693ccab1216aa",
+      "id": 3,
+      "password": "aaaqnzpo"
+    },
+    {
+      "hash": "5fa6c577f37f6ee42bddc8c3473ed4a282f2d57605f7e96ab755f2c42ea9d3fe",
+      "id": 4,
+      "password": "aaar2tux"
+    },
+    {
+      "hash": "f7e06ff1951877aeb56aa5e47a80d2a84397f9a079defd165f06ef0df0e47eaa",
+      "id": 5,
+      "password": "aaawk38g"
+    },
+    {
+      "hash": "d27a49d532e941825004ec4dd2114ef6a2cf3d4120bd420264ea0e3a2456f6b8",
+      "id": 6,
+      "password": "aaa9yi17"
+    },
+    {
+      "hash": "a1fa95c8e7ee7eaa5bcbedf9171c52d83f3dcbfa51b943df84d5c9a1f223d122",
+      "id": 7,
+      "password": "aabde9sb"
+    },
+    {
+      "hash": "3be832f856a035a65ef58f1c9f4cfbb3a18d6277ffb6b8813178d08e4cb5c4cd",
+      "id": 8,
+      "password": "aabh8n1j"
+    },
+    {
+      "hash": "ff60035887416d0ec42c3ac8065a951935b88ede74ab94b4b09b0a49929039e0",
+      "id": 9,
+      "password": "aab5ptbf"
+    },
+    {
+      "hash": "d9c486ac4bd99513e9fbec26fad1729e16081bfa0e57804fcc6e9b1807593b6a",
+      "id": 10,
+      "password": "aacpf1xx"
+    },
+    {
+      "hash": "2ed9f8a3eb8f3673a7ecdafea12707b5e5a8eee0f65186c8a6c34b0447a79fdd",
+      "id": 11,
+      "password": "aacwnopk"
+    },
+    {
+      "hash": "37acebb0e715c1bba0daa436bf798092c38ffa53fc67ba580216f5dfef440b92",
+      "id": 12,
+      "password": "aac4g793"
+    },
+    {
+      "hash": "f0057f78e93f36366a8363a8981bacda5738812a14dd13efa0db1776dcd76845",
+      "id": 13,
+      "password": "aadafofc"
+    },
+    {
+      "hash": "d8017566245c435fb0223adf76bed79f8c5b7722c81a23d28eab38ce2c1dbfb8",
+      "id": 14,
+      "password": "aadjzkpo"
+    },
+    {
+      "hash": "95e3b1bb734b732bcb50a7a3330713dd33ced0549bb3438bf875d6fba22be18e",
+      "id": 15,
+      "password": "aadknpw9"
+    },
+    {
+      "hash": "24712731db2abb8fd2366eec3de7027b8c9b9231651b8fbe1a91dda3659253c3",
+      "id": 16,
+      "password": "aadkssrl"
+    }
+  ],
+  "program": "seq",
+  "range_begin": 0,
+  "range_end": 204800000,
+  "size_code": 2048,
+  "throughput_per_second": 301741.0809087123,
+  "time_seconds": 678.727601105
+}

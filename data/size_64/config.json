@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "hash_type": "sha256",
+  "range_begin": 0,
+  "range_end": 6400000,
+  "password_length": 8,
+  "charset": "abcdefghijklmnopqrstuvwxyz0123456789",
+  "iterations": 1,
+  "salt": "edu-salt-2026",
+  "targets": 16,
+  "size_code": 64,
+  "seed": 42,
+  "targets_file": "targets.jsonl"
+}
