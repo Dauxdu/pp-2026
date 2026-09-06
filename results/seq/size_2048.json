@@ -89,6 +89,6 @@
   "range_begin": 0,
   "range_end": 204800000,
   "size_code": 2048,
-  "throughput_per_second": 301741.0809087123,
-  "time_seconds": 678.727601105
+  "throughput_per_second": 292252.2783448748,
+  "time_seconds": 700.764425721
 }
