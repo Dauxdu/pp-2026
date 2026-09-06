@@ -13,6 +13,35 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+
+_BG_FIGURE = "#0d1117"
+_BG_AXES = "#161b22"
+_GRID = "#30363d"
+_TEXT = "#c9d1d9"
+_TITLE = "#e6edf3"
+_COLOR_BLUE = "#3d7ef2"
+_COLOR_ORANGE = "#e0592b"
+
+plt.rcParams.update(
+    {
+        "figure.facecolor": _BG_FIGURE,
+        "axes.facecolor": _BG_AXES,
+        "axes.edgecolor": _GRID,
+        "axes.labelcolor": _TEXT,
+        "axes.titlecolor": _TITLE,
+        "axes.titleweight": "bold",
+        "text.color": _TEXT,
+        "xtick.color": _TEXT,
+        "ytick.color": _TEXT,
+        "grid.color": _GRID,
+        "grid.alpha": 0.7,
+        "grid.linewidth": 0.6,
+        "font.size": 11,
+        "axes.titlesize": 13,
+        "savefig.facecolor": _BG_FIGURE,
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -62,6 +91,11 @@ def write_csv(results: list[RunResult], path: Path) -> None:
     print(f"Сохранено: {path}")
 
 
+def _format_millions(value: float, _pos: int | None = None) -> str:
+    """Компактная подпись деления оси"""
+    return f"{value:g}"
+
+
 def save_line_plot(
     x: list[float],
     y: list[float],
@@ -71,10 +105,38 @@ def save_line_plot(
     title: str,
     color: str,
     path: Path,
+    y_log: bool = False,
 ) -> None:
-    """Общая функция для построения линейных графиков времени и производительности (DRY)."""
+    """Общая функция для построения линейных графиков времени и производительности"""
+
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.plot(x, y, marker="o", linewidth=2, color=color)
+
+    ax.plot(
+        x,
+        y,
+        marker="o",
+        markersize=6,
+        linewidth=2,
+        color=color,
+        markerfacecolor=color,
+        markeredgecolor=_BG_AXES,
+        markeredgewidth=1,
+    )
+
+    ax.set_xscale("log")
+    ax.set_xticks(x)
+    ax.xaxis.set_major_formatter(mticker.FuncFormatter(_format_millions))
+    ax.xaxis.set_minor_locator(mticker.NullLocator())
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+
+    if y_log:
+        ax.set_yscale("log")
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(_format_millions))
+        ax.grid(True, which="major", axis="y")
+        ax.grid(True, which="minor", axis="y", alpha=0.3)
+    else:
+        ax.grid(True, which="major", axis="y")
+
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
@@ -95,8 +157,19 @@ def plot_results(results: list[RunResult], figures_dir: Path) -> None:
         xlabel="Количество кандидатов, млн",
         ylabel="Время, сек",
         title="Время последовательного выполнения vs Размер задачи",
-        color="tab:blue",
+        color=_COLOR_BLUE,
         path=figures_dir / "time_by_size.png",
+    )
+
+    save_line_plot(
+        candidates_millions,
+        [r.time_seconds for r in results],
+        xlabel="Количество кандидатов, млн",
+        ylabel="Время, сек (лог. шкала)",
+        title="Время последовательного выполнения vs Размер задачи",
+        color=_COLOR_BLUE,
+        path=figures_dir / "time_by_size_log.png",
+        y_log=True,
     )
 
     # График зависимости производительности от размера задачи
@@ -106,7 +179,7 @@ def plot_results(results: list[RunResult], figures_dir: Path) -> None:
         xlabel="Количество кандидатов, млн",
         ylabel="Производительность, млн канд/сек",
         title="Последовательная производительность vs Размер задачи",
-        color="tab:green",
+        color=_COLOR_ORANGE,
         path=figures_dir / "throughput_by_size.png",
     )
 
