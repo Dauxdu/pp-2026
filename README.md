@@ -74,9 +74,9 @@ pip install -r requirements.txt
 
 ```bash
 make build
-make generate_data
+make data
 make start
-make generate_plots
+make plots
 ```
 
 Количество ядер и потоков передаётся в собранный исполняемый файл флагами `--cores` и `--threads`.

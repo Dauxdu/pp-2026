@@ -37,7 +37,7 @@ help:
 	@echo "Пример: make start SIZES=\"128 256 512\" BACKEND=openmp THREADS=\"1 2 4\" CORES=\"1 2 4 8\""
 
 ## all: Полный цикл
-all: configure build generate_data start generate_plots
+all: configure build data start plots
 
 ## configure: Настройка CMake (требует VCPKG_ROOT)
 configure:
@@ -49,8 +49,8 @@ build:
 	@test -f "$(BUILD_DIR)/CMakeCache.txt" || $(MAKE) configure
 	cmake --build "$(BUILD_DIR)" -j
 
-## generate_data: Генерация датасетов
-generate_data:
+## data: Генерация датасетов
+data:
 	@mkdir -p "$(DATA_DIR)"
 	@for s in $(SIZES); do \
 		python3 "$(SCRIPTS_DIR)/generate_data.py" \
@@ -60,8 +60,8 @@ generate_data:
 			--size-code $$s; \
 	done
 
-## generate_plots: Построение графиков
-generate_plots:
+## plots: Построение графиков
+plots:
 	@mkdir -p "$(FIGURES_DIR)"
 	@python3 "$(SCRIPTS_DIR)/generate_plots.py" \
 		--results-file "$(RESULTS_FILE)" \
