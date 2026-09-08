@@ -1,45 +1,58 @@
-# Переменные путей
-PWD := $(shell pwd)
-DATA_DIR := $(PWD)/data
-RESULTS_DIR := $(PWD)/results/$(BACKEND)
-FIGURES_DIR := $(PWD)/reports/$(LAB)/figures
-SCRIPTS_DIR := $(PWD)/scripts
-BUILD_DIR := $(PWD)/build
-BUILD_BIN := $(BUILD_DIR)/src/$(BACKEND)/$(BACKEND)
+-include .env
+
 BACKEND ?= seq
-LAB ?= lab_01
+ifeq ($(BACKEND),seq)
+  LAB ?= lab_01
+else ifeq ($(BACKEND),openmp)
+  LAB ?= lab_02
+else ifeq ($(BACKEND),mpi)
+  LAB ?= lab_03
+else ifeq ($(BACKEND),cuda)
+  LAB ?= lab_04
+endif
 
-# Списки размеров для разных сценариев
-SIZES_ALL := 1 2 4 8 16 32 64 128 256 512 1024 2048 4096
-SIZES_SMALL := 1 2 4 8 16 32
-SIZES_MEDIUM := 32 64 128 256
-SIZES_LARGE := 512 1024 2048 4096
+DATA_DIR := $(CURDIR)/data
+SCRIPTS_DIR := $(CURDIR)/scripts
+BUILD_DIR := $(CURDIR)/build
+BUILD_BIN := $(BUILD_DIR)/src/backends/$(BACKEND)/$(BACKEND)
+RESULTS_DIR := $(CURDIR)/results/$(BACKEND)
+RESULTS_FILE := $(RESULTS_DIR)/results.jsonl
+FIGURES_DIR := $(CURDIR)/reports/$(LAB)/figures
 
-.PHONY: help all configure build generate_data generate_plots start_all start_small start_medium start_large
+SIZES ?= 1 2 4 8 16 32 64 128 256 512 1024 2048 4096
+CORES ?= 1 2 4
+THREADS ?= 1 2 4 8
+THREADED_BACKENDS ?= openmp mpi
+# Аргументы потоков и ядер передаются только для многопоточных бекендов
+THREADED_ARGS = $(if $(filter $(BACKEND),$(THREADED_BACKENDS)),--threads $(THREADS) --cores $(CORES),)
+
+.PHONY: help all configure build generate_data start generate_plots
 
 .DEFAULT_GOAL := help
 
 help:
 	@echo "Доступные команды:"
 	@sed -n 's/^## //p' $(MAKEFILE_LIST) | column -t -s ':'
+	@echo ""
+	@echo "Пример: make start SIZES=\"128 256 512\" BACKEND=openmp THREADS=\"1 2 4\" CORES=\"1 2 4 8\""
 
-## all: Полный цикл на малом наборе (1-32)
-all: configure build generate_data start_all generate_plots
+## all: Полный цикл
+all: configure build generate_data start generate_plots
 
-## configure: Сконфигурировать CMake-проект через vcpkg (нужен VCPKG_ROOT).
+## configure: Настройка CMake (требует VCPKG_ROOT)
 configure:
-	cmake -S "$(PWD)" -B "$(BUILD_DIR)" \
+	cmake -S "$(CURDIR)" -B "$(BUILD_DIR)" \
 		-DCMAKE_TOOLCHAIN_FILE="$(VCPKG_ROOT)/scripts/buildsystems/vcpkg.cmake"
 
-## build: Собрать бинарник.
+## build: Сборка бекенда
 build:
 	@test -f "$(BUILD_DIR)/CMakeCache.txt" || $(MAKE) configure
 	cmake --build "$(BUILD_DIR)" -j
 
-## generate_data: Сгенерировать входные данные.
+## generate_data: Генерация датасетов
 generate_data:
 	@mkdir -p "$(DATA_DIR)"
-	@for s in $(SIZES_ALL); do \
+	@for s in $(SIZES); do \
 		python3 "$(SCRIPTS_DIR)/generate_data.py" \
 			--out "$(DATA_DIR)/size_$$s" \
 			--range-end $$(($$s * 100000)) \
@@ -47,39 +60,15 @@ generate_data:
 			--size-code $$s; \
 	done
 
-## generate_plots: Построить графики на основе результатов текущего BACKEND.
+## generate_plots: Построение графиков
 generate_plots:
 	@mkdir -p "$(FIGURES_DIR)"
 	@python3 "$(SCRIPTS_DIR)/generate_plots.py" \
-		--results-dir "$(RESULTS_DIR)" \
+		--results-file "$(RESULTS_FILE)" \
 		--figures-dir "$(FIGURES_DIR)"
 
-# Внутренний макрос: прогнать бинарник и сразу проверить результат.
-define run_and_verify
-	@mkdir -p "$(RESULTS_DIR)"
-	@for s in $(1); do \
-		"$(BUILD_BIN)" \
-			--config "$(DATA_DIR)/size_$$s/config.json" \
-			--output "$(RESULTS_DIR)/size_$$s.json"; \
-		python3 "$(SCRIPTS_DIR)/verify_results.py" \
-			--config "$(DATA_DIR)/size_$$s/config.json" \
-			--expected "$(DATA_DIR)/size_$$s/expected.jsonl" \
-			--result "$(RESULTS_DIR)/size_$$s.json"; \
-	done
-endef
-
-## start_all: Запустить расчёты и верификацию для ВСЕХ размеров.
-start_all:
-	$(call run_and_verify,$(SIZES_ALL))
-
-## start_small: Запустить расчёты и верификацию для МАЛЕНЬКИХ размеров (1-32).
-start_small:
-	$(call run_and_verify,$(SIZES_SMALL))
-
-## start_medium: Запустить расчёты и верификацию для СРЕДНИХ размеров (32-256).
-start_medium:
-	$(call run_and_verify,$(SIZES_MEDIUM))
-
-## start_large: Запустить расчёты и верификацию для БОЛЬШИХ размеров (512-4096).
-start_large:
-	$(call run_and_verify,$(SIZES_LARGE))
+## start: Запуск бенчмарка и верификация
+start:
+	python3 "$(SCRIPTS_DIR)/run_benchmark.py" \
+		--binary "$(BUILD_BIN)" --data-dir "$(DATA_DIR)" --results-file "$(RESULTS_FILE)" \
+		--sizes $(SIZES) $(THREADED_ARGS)
