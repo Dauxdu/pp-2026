@@ -26,7 +26,7 @@ THREADED_BACKENDS ?= openmp mpi
 # Аргументы потоков и ядер передаются только для многопоточных бекендов
 THREADED_ARGS = $(if $(filter $(BACKEND),$(THREADED_BACKENDS)),--threads $(THREADS) --cores $(CORES),)
 
-.PHONY: help all configure build generate_data start generate_plots
+.PHONY: help all configure build data start plots
 
 .DEFAULT_GOAL := help
 
