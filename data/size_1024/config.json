@@ -6,9 +6,9 @@
   "password_length": 8,
   "charset": "abcdefghijklmnopqrstuvwxyz0123456789",
   "iterations": 1,
-  "salt": "edu-salt-2026",
+  "salt": "ssau-2026",
   "targets": 16,
   "size_code": 1024,
-  "seed": 42,
+  "seed": 18,
   "targets_file": "targets.jsonl"
 }
