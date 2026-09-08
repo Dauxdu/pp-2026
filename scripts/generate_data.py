@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Генерация синтетического датасета паролей и хэшей для образовательных целей."""
+"""Генерация синтетического датасета паролей и хэшей."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class Config:
-    """Все параметры, необходимые для воспроизведения датасета."""
+    """Параметры датасета."""
 
     out: Path = Path("data/size_200")
     range_begin: int = 0
@@ -22,18 +22,17 @@ class Config:
     password_length: int = 8
     charset: str = "abcdefghijklmnopqrstuvwxyz0123456789"
     iterations: int = 1
-    salt: str = "edu-salt-2026"
+    salt: str = "ssau-2026"
     targets: int = 16
     size_code: int | None = None
-    seed: int = 42
+    seed: int = 18
 
     @property
     def password_space(self) -> int:
-        """Общее пространство возможных паролей."""
         return len(self.charset) ** self.password_length
 
     def validate(self) -> None:
-        """Проверка корректности параметров конфигурации."""
+        """Проверяет допустимость параметров."""
         if self.range_end <= self.range_begin:
             raise ValueError("range-end должен быть больше, чем range-begin")
         if not 0 < self.targets <= self.range_end - self.range_begin:
@@ -42,7 +41,6 @@ class Config:
             raise ValueError("range-end превышает общее пространство паролей")
 
     def as_json_dict(self) -> dict:
-        """Поля конфигурации для сохранения, исключая значения None и путь вывода."""
         data = {k: v for k, v in asdict(self).items() if k != "out" and v is not None}
         return {
             "version": 1,
@@ -53,7 +51,7 @@ class Config:
 
 
 def index_to_password(index: int, length: int, charset: str) -> str:
-    """Преобразование числового индекса в пароль через N-ичное кодирование по алфавиту."""
+    """Преобразует индекс в пароль (N-ичное кодирование)."""
     base = len(charset)
     if not 0 <= index < base**length:
         raise ValueError(
@@ -64,11 +62,12 @@ def index_to_password(index: int, length: int, charset: str) -> str:
     for _ in range(length):
         index, remainder = divmod(index, base)
         chars.append(charset[remainder])
+
     return "".join(reversed(chars))
 
 
 def hash_password(password: str, salt: str, iterations: int) -> str:
-    """Хэширование пароля с солью и итерациями с использованием SHA-256."""
+    """SHA-256(salt + password) с итерациями."""
     digest = hashlib.sha256((salt + password).encode("utf-8")).digest()
     for _ in range(iterations - 1):
         digest = hashlib.sha256(digest).digest()
@@ -77,8 +76,6 @@ def hash_password(password: str, salt: str, iterations: int) -> str:
 
 @dataclass(frozen=True)
 class Target:
-    """Искомая цель: структура для хранения сгенерированного пароля и его хэша."""
-
     id: int
     index: int
     password: str
@@ -86,21 +83,23 @@ class Target:
 
 
 def build_targets(config: Config) -> list[Target]:
-    """Выбор случайных индексов в диапазоне и их преобразование в записи паролей/хэшей."""
+    """Создаёт случайные цели в диапазоне."""
     rng = random.Random(config.seed)
     indices = sorted(
         rng.sample(range(config.range_begin, config.range_end), config.targets)
     )
+
     targets = []
     for target_id, index in enumerate(indices, start=1):
         password = index_to_password(index, config.password_length, config.charset)
         password_hash = hash_password(password, config.salt, config.iterations)
         targets.append(Target(target_id, index, password, password_hash))
+
     return targets
 
 
 def write_dataset(config: Config, targets: list[Target]) -> None:
-    """Запись файлов targets.jsonl, expected.jsonl и config.json в директорию config.out."""
+    """Пишет targets.jsonl, expected.jsonl и config.json."""
     config.out.mkdir(parents=True, exist_ok=True)
 
     with ExitStack() as stack:
@@ -110,6 +109,7 @@ def write_dataset(config: Config, targets: list[Target]) -> None:
         expected_file = stack.enter_context(
             (config.out / "expected.jsonl").open("w", encoding="utf-8")
         )
+
         for t in targets:
             targets_file.write(json.dumps({"id": t.id, "hash": t.password_hash}) + "\n")
             expected_file.write(
@@ -132,7 +132,6 @@ def write_dataset(config: Config, targets: list[Target]) -> None:
 
 
 def parse_args() -> Config:
-    """Парсинг аргументов командной строки."""
     defaults = Config()
     parser = argparse.ArgumentParser(description="Генерация синтетического датасета")
     parser.add_argument("--out", type=Path, default=defaults.out)
@@ -163,6 +162,7 @@ def parse_args() -> Config:
 
 def main() -> None:
     config = parse_args()
+
     try:
         config.validate()
     except ValueError as exc:
