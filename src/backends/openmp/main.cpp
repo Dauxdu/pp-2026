@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+// Аргументы командной строки.
 struct CliArgs
 {
     std::string config_path;
@@ -35,10 +36,12 @@ CliArgs parse_args(int argc, char **argv)
             args.threads = std::stoi(argv[++i]);
         }
     }
+
     if (args.config_path.empty())
     {
-        throw std::runtime_error(std::string("usage: ") + argv[0] + " --config <config.json> [--output <result.json>] [--threads <N>]");
+        throw std::runtime_error(std::string("использование: ") + argv[0] + " --config <config.json> [--output <result.json>] [--threads <N>]");
     }
+
     return args;
 }
 
@@ -132,5 +135,6 @@ int main(int argc, char **argv)
         std::cerr << "Ошибка: " << e.what() << "\n";
         return 1;
     }
+
     return 0;
 }

@@ -14,11 +14,9 @@ struct CliArgs
 CliArgs parse_args(int argc, char **argv)
 {
     CliArgs args;
-
     for (int i = 1; i < argc; ++i)
     {
         const std::string arg = argv[i];
-
         if (arg == "--config" && i + 1 < argc)
         {
             args.config_path = argv[++i];
