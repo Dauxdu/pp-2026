@@ -1,30 +1,15 @@
-/**
- * @file sha256.hpp
- * @brief Минимальная реализация алгоритма SHA-256 без внешних зависимостей.
- */
-
+// sha256.hpp
 #pragma once
-
 #include <array>
 #include <cstdint>
 #include <cstring>
 #include <string>
 #include <tuple>
 
-/**
- * @class Sha256
- * @brief Класс для вычисления криптографических хэшей по стандарту SHA-256.
- *
- * Поддерживает потоковую обработку данных через последовательные вызовы update().
- */
 class Sha256
 {
 private:
-    /**
-     * @brief Константы раундов алгоритма SHA-256 (64 элемента).
-     *
-     * Первые 32 бита дробных частей кубических корней первых 64 простых чисел.
-     */
+    // Константы SHA-256.
     static constexpr std::array<std::uint32_t, 64> kRoundConstants = {
         0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u, 0x3956c25bu, 0x59f111f1u,
         0x923f82a4u, 0xab1c5ed5u, 0xd807aa98u, 0x12835b01u, 0x243185beu, 0x550c7dc3u,
@@ -38,23 +23,12 @@ private:
         0x5b9cca4fu, 0x682e6ff3u, 0x748f82eeu, 0x78a5636fu, 0x84c87814u, 0x8cc70208u,
         0x90befffau, 0xa4506cebu, 0xbef9a3f7u, 0xc67178f2u};
 
-    /**
-     * @brief Вспомогательная функция циклического сдвига 32-битного числа вправо.
-     * @param x Исходное число.
-     * @param n Количество бит для сдвига.
-     * @return Результат циклического сдвига.
-     */
     static std::uint32_t rotr(std::uint32_t x, std::uint32_t n)
     {
         return (x >> n) | (x << (32 - n));
     }
 
-    /**
-     * @brief Основная функция трансформации 64-байтного блока данных.
-     *
-     * Выполняет расширение сообщения до 64 слов и запускает основной цикл из 64 раундов SHA-256,
-     * обновляя текущие значения регистров state_.
-     */
+    // Обрабатывает один 64-байтный блок и обновляет состояние.
     void transform()
     {
         std::uint32_t m[64];
@@ -84,6 +58,7 @@ private:
             const std::uint32_t s0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
             const std::uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
             const std::uint32_t t2 = s0 + maj;
+
             h = g;
             g = f;
             f = e;
@@ -105,14 +80,8 @@ private:
     }
 
 public:
-    /**
-     * @brief Конструктор по умолчанию. Автоматически сбрасывает состояние.
-     */
     Sha256() { reset(); }
 
-    /**
-     * @brief Сбрасывает внутреннее состояние хэшера для начала нового вычисления.
-     */
     void reset()
     {
         data_len_ = 0;
@@ -121,11 +90,6 @@ public:
                   0x510e527fu, 0x9b05688cu, 0x1f83d9abu, 0x5be0cd19u};
     }
 
-    /**
-     * @brief Добавляет порцию данных для хэширования.
-     * @param data Указатель на массив байт.
-     * @param len Размер данных в байтах.
-     */
     void update(const std::uint8_t *data, std::size_t len)
     {
         while (len > 0)
@@ -136,6 +100,7 @@ public:
             data_len_ += n;
             data += n;
             len -= n;
+
             if (data_len_ == 64)
             {
                 transform();
@@ -145,10 +110,7 @@ public:
         }
     }
 
-    /**
-     * @brief Завершает вычисление хэша, добавляя необходимое дополнение (padding).
-     * @return Массив из 32 байт, содержащий итоговый дайджест SHA-256.
-     */
+    // Завершает хэширование: добавляет паддинг и длину сообщения.
     std::array<std::uint8_t, 32> finalize()
     {
         const std::uint64_t total_bits = bit_len_ + static_cast<std::uint64_t>(data_len_) * 8u;
@@ -173,6 +135,7 @@ public:
         {
             block_[56 + i] = static_cast<std::uint8_t>(total_bits >> (56 - 8 * i));
         }
+
         transform();
 
         std::array<std::uint8_t, 32> digest{};
@@ -186,12 +149,6 @@ public:
         return digest;
     }
 
-    /**
-     * @brief Вспомогательный статический метод для хэширования единого блока данных.
-     * @param data Указатель на массив байт.
-     * @param len Размер данных в байтах.
-     * @return Массив из 32 байт с результатом SHA-256.
-     */
     static std::array<std::uint8_t, 32> hash(const std::uint8_t *data, std::size_t len)
     {
         Sha256 hasher;
@@ -199,17 +156,12 @@ public:
         return hasher.finalize();
     }
 
-    std::array<std::uint32_t, 8> state_{}; ///< Текущее состояние хэша (хэш-регистры A-H)
-    std::uint8_t block_[64]{};             ///< Внутренний буфер для обработки 64-байтных блоков
-    std::size_t data_len_ = 0;             ///< Количество байт, находящихся в буфере block_ прямо сейчас
-    std::uint64_t bit_len_ = 0;            ///< Общая длина обработанного сообщения в битах (без учета текущего буфера)
+    std::array<std::uint32_t, 8> state_{};
+    std::uint8_t block_[64]{};
+    std::size_t data_len_ = 0;
+    std::uint64_t bit_len_ = 0;
 };
 
-/**
- * @brief Конвертирует сырой байтовый хэш в шестнадцатеричную строку (HEX).
- * @param digest Массив из 32 байт, полученный после finalize().
- * @return Строка из 64 символов в нижнем регистре.
- */
 inline std::string to_hex(const std::array<std::uint8_t, 32> &digest)
 {
     static constexpr char kHexDigits[] = "0123456789abcdef";
@@ -222,24 +174,16 @@ inline std::string to_hex(const std::array<std::uint8_t, 32> &digest)
     return out;
 }
 
-/**
- * @brief Вычисляет итеративный salted-хэш SHA-256 для пароля.
- *
- * Склеивает соль и пароль, после чего применяет SHA-256 заданное количество раз
- * в соответствии с требованиями к конфигурации датасета.
- *
- * @param salt Соль в виде строки.
- * @param password Исходный пароль для проверки.
- * @param iterations Количество циклов хэширования (минимум 1).
- * @return Итоговый хэш в виде HEX-строки из 64 символов.
- */
+// Итеративный salted SHA-256.
 inline std::string hash_password(const std::string &salt, const std::string &password, int iterations)
 {
     const std::string salted = salt + password;
     auto digest = Sha256::hash(reinterpret_cast<const std::uint8_t *>(salted.data()), salted.size());
+
     for (int i = 1; i < iterations; ++i)
     {
         digest = Sha256::hash(digest.data(), digest.size());
     }
+
     return to_hex(digest);
 }

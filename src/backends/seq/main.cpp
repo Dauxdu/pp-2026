@@ -1,40 +1,25 @@
-/**
- * @file main.cpp
- * @brief Последовательный бэкенд для аудита паролей.
- *
- * Выполняет перебор кандидатов в одном потоке, хэширует их и проверяет наличие совпадений в целевом индексе.
- */
-
-#include "../audit.hpp"
-#include "../sha256.hpp"
-
+// main.cpp
+#include "../../core/audit.hpp"
+#include "../../core/sha256.hpp"
 #include <algorithm>
 #include <iostream>
 #include <string>
 
-/**
- * @struct CliArgs
- * @brief Структура для хранения аргументов командной строки.
- */
+// Аргументы командной строки.
 struct CliArgs
 {
-    std::string config_path;                 ///< Путь к файлу конфигурации config.json
-    std::string output_path = "result.json"; ///< Путь для сохранения выходного JSON-файла
+    std::string config_path;
+    std::string output_path = "result.json";
 };
 
-/**
- * @brief Разбирает аргументы командной строки.
- * @param argc Количество аргументов.
- * @param argv Массив указателей на аргументы.
- * @return Заполненная структура CliArgs с параметрами запуска.
- * @throws std::runtime_error Если не передан обязательный параметр --config.
- */
 CliArgs parse_args(int argc, char **argv)
 {
     CliArgs args;
+
     for (int i = 1; i < argc; ++i)
     {
         const std::string arg = argv[i];
+
         if (arg == "--config" && i + 1 < argc)
         {
             args.config_path = argv[++i];
@@ -53,16 +38,7 @@ CliArgs parse_args(int argc, char **argv)
     return args;
 }
 
-/**
- * @brief Основная функция последовательного перебора паролей.
- *
- * Проходит по всему выделенному диапазону индексов, генерирует пароли,
- * вычисляет их хэши и ищет совпадения в индексе целей.
- *
- * @param config Конфигурация аудита.
- * @param targets Индекс искомых хэшей.
- * @return Результат аудита AuditResult со списком совпадений и метриками.
- */
+// Последовательно перебирает диапазон и ищет совпадения.
 AuditResult run_audit(const AuditConfig &config, const TargetIndex &targets)
 {
     AuditResult result;
@@ -94,7 +70,6 @@ AuditResult run_audit(const AuditConfig &config, const TargetIndex &targets)
     result.time_seconds = stopwatch.elapsed_seconds();
     result.candidates_checked = config.candidate_count();
 
-    // Сортировка найденных совпадений по возрастанию ID
     std::sort(result.matches.begin(), result.matches.end(),
               [](const Match &a, const Match &b)
               { return a.id < b.id; });
@@ -102,12 +77,6 @@ AuditResult run_audit(const AuditConfig &config, const TargetIndex &targets)
     return result;
 }
 
-/**
- * @brief Точка входа в программу.
- * @param argc Количество аргументов командной строки.
- * @param argv Массив аргументов командной строки.
- * @return Идентификатор статуса завершения (0 — успешно, 1 — ошибка).
- */
 int main(int argc, char **argv)
 {
     try
@@ -117,7 +86,6 @@ int main(int argc, char **argv)
         const TargetIndex targets = TargetIndex::load(config.targets_file);
 
         AuditResult result = run_audit(config, targets);
-        result.config_file = args.config_path;
         result.write(args.output_path);
 
         std::cout << "checked=" << result.candidates_checked

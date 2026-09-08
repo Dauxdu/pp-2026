@@ -10,7 +10,7 @@ target_link_libraries(core
     nlohmann_json::nlohmann_json
 )
 
-add_subdirectory("seq")
-#add_subdirectory("openmp")
-#add_subdirectory("mpi")
-#add_subdirectory("cuda")
+add_subdirectory("backends/seq")
+#add_subdirectory("backends/openmp")
+#add_subdirectory("backends/mpi")
+#add_subdirectory("backends/cuda")
