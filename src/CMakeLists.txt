@@ -11,6 +11,6 @@ target_link_libraries(core
 )
 
 add_subdirectory("backends/seq")
-#add_subdirectory("backends/openmp")
+add_subdirectory("backends/openmp")
 #add_subdirectory("backends/mpi")
 #add_subdirectory("backends/cuda")

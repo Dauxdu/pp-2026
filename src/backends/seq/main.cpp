@@ -1,4 +1,3 @@
-// main.cpp
 #include "../../core/audit.hpp"
 #include "../../core/sha256.hpp"
 #include <algorithm>
