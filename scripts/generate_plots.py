@@ -205,7 +205,7 @@ def render_heatmap(spec: HeatmapSpec, figures_dir: Path) -> None:
     ax.set_yticks(range(len(spec.cores_axis)))
     ax.set_yticklabels(spec.cores_axis)
     ax.set_xlabel("Число потоков")
-    ax.set_ylabel("Число ядер (taskset)")
+    ax.set_ylabel("Число ядер")
     ax.set_title(spec.title)
 
     for i in range(data.shape[0]):
@@ -324,9 +324,7 @@ def plot_grid(results: list[RunResult], figures_dir: Path) -> None:
 
     primary_size = max(by_size)
     grid = by_size[primary_size]
-    print(
-        f"Графики сетки ядра×потоки строятся по size_code={primary_size} (самый крупный из доступных)"
-    )
+    print(f"Графики сетки ядра×потоки строятся по размеру {primary_size}")
 
     speedup_matrix = _speedup_matrix(grid, cores_axis, threads_axis)
 
@@ -342,12 +340,12 @@ def plot_grid(results: list[RunResult], figures_dir: Path) -> None:
     render_heatmap(
         HeatmapSpec(
             "heatmap_speedup.png",
-            f"Ускорение S(ядра, потоки), size_code={primary_size}",
+            f"Ускорение (S) ядер к потокам на размере {primary_size}",
             cores_axis,
             threads_axis,
             speedup_matrix,
             value_fmt="{:.2f}",
-            colorbar_label="S = T(1,1) / T(cores,threads)",
+            colorbar_label="Ускорение (S)",
         ),
         figures_dir,
     )
@@ -355,12 +353,12 @@ def plot_grid(results: list[RunResult], figures_dir: Path) -> None:
     render_heatmap(
         HeatmapSpec(
             "heatmap_efficiency.png",
-            f"Эффективность E(ядра, потоки), size_code={primary_size}",
+            f"Эффективность (E) ядер к потокам на размере {primary_size}",
             cores_axis,
             threads_axis,
             efficiency_matrix,
             value_fmt="{:.2f}",
-            colorbar_label="E = S / min(ядра, потоки)",
+            colorbar_label="Эффективность (E)",
         ),
         figures_dir,
     )
@@ -390,7 +388,7 @@ def plot_grid(results: list[RunResult], figures_dir: Path) -> None:
         [
             PlotSpec(
                 "time_by_threads.png",
-                f"Время выполнения vs Число потоков, size_code={primary_size}",
+                f"Время выполнения vs Число потоков, размер {primary_size}",
                 "Число потоков",
                 "Время, сек",
                 time_series,
@@ -399,9 +397,9 @@ def plot_grid(results: list[RunResult], figures_dir: Path) -> None:
             ),
             PlotSpec(
                 "speedup_by_threads.png",
-                f"Ускорение vs Число потоков, size_code={primary_size}",
+                f"Ускорение (S) vs Число потоков, размер {primary_size}",
                 "Число потоков",
-                "Ускорение S = T(1,1) / T(cores,threads)",
+                "Ускорение (S)",
                 speedup_series,
                 x_log=False,
             ),
@@ -429,7 +427,7 @@ def plot_grid(results: list[RunResult], figures_dir: Path) -> None:
             [
                 PlotSpec(
                     "time_by_size_scaling.png",
-                    "Время выполнения vs Размер задачи (ядра = потоки)",
+                    "Время выполнения vs Размер задачи",
                     "Количество кандидатов, млн",
                     "Время, сек (лог. шкала)",
                     diag_series,

@@ -16,7 +16,7 @@ from pathlib import Path
 class Config:
     """Параметры датасета."""
 
-    out: Path = Path("data/size_200")
+    out: Path = Path("data/size_N")
     range_begin: int = 0
     range_end: int = 20_000_000
     password_length: int = 8
