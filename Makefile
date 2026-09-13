@@ -23,8 +23,15 @@ SIZES ?= 1 2 4 8 16 32 64 128 256 512 1024 2048 4096
 CORES ?= 1 2 4
 THREADS ?= 1 2 4 8
 THREADED_BACKENDS ?= openmp mpi
-# Аргументы потоков и ядер передаются только для многопоточных бекендов
-THREADED_ARGS = $(if $(filter $(BACKEND),$(THREADED_BACKENDS)),--threads $(THREADS) --cores $(CORES),)
+MPI_LAUNCHER ?= mpirun
+
+ifeq ($(BACKEND),openmp)
+  THREADED_ARGS = --threads $(THREADS) --cores $(CORES)
+else ifeq ($(BACKEND),mpi)
+  THREADED_ARGS = --processes $(THREADS) --cores $(CORES) --launcher $(MPI_LAUNCHER)
+else
+  THREADED_ARGS =
+endif
 
 .PHONY: help all configure build data start plots
 

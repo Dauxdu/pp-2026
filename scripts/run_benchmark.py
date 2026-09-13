@@ -43,6 +43,8 @@ def run_once(
     config_path: Path,
     threads: int | None,
     cores: int | None,
+    processes: int | None,
+    launcher: str,
     taskset: str | None,
 ) -> dict:
     """Запускает бинарник и читает его JSON-результат."""
@@ -56,13 +58,19 @@ def run_once(
         eff = clamp_cores(cores, available_cores())
         cmd += [taskset, "-c", f"0-{eff - 1}"]
 
+    if processes is not None:
+        cmd += [launcher, "-np", str(processes)]
+
     cmd += [str(binary), "--config", str(config_path), "--output", str(tmp)]
 
     if threads is not None:
         cmd += ["--threads", str(threads)]
 
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+        except OSError as exc:
+            raise RuntimeError(f"не удалось запустить {cmd[0]!r}: {exc}") from exc
 
         if proc.returncode != 0:
             raise RuntimeError(
@@ -109,6 +117,18 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Список чисел ядер. Запускаеттся без привязки к ядрам.",
     )
+    parser.add_argument(
+        "--processes",
+        nargs="*",
+        type=int,
+        default=None,
+        help="Список чисел MPI-процессов.",
+    )
+    parser.add_argument(
+        "--launcher",
+        default="mpirun",
+        help="Команда запуска MPI-задачи.",
+    )
 
     return parser.parse_args()
 
@@ -125,6 +145,10 @@ def main() -> None:
     taskset = shutil.which("taskset")
     threads_grid: list[int | None] = args.threads if args.threads else [None]
     cores_grid: list[int | None] = args.cores if args.cores else [None]
+    processes_grid: list[int | None] = args.processes if args.processes else [None]
+
+    if args.threads and args.processes:
+        raise SystemExit("--threads и --processes взаимоисключающие")
 
     total = ok = 0
 
@@ -145,31 +169,41 @@ def main() -> None:
 
         for cores in cores_grid:
             for threads in threads_grid:
-                label = (
-                    f"size={size}"
-                    + (f" threads={threads}" if threads is not None else "")
-                    + (f" cores={cores}" if cores is not None else "")
-                )
+                for processes in processes_grid:
+                    label = (
+                        f"size={size}"
+                        + (f" threads={threads}" if threads is not None else "")
+                        + (f" processes={processes}" if processes is not None else "")
+                        + (f" cores={cores}" if cores is not None else "")
+                    )
 
-                total += 1
+                    total += 1
 
-                try:
-                    data = run_once(args.binary, config_path, threads, cores, taskset)
-                except RuntimeError as exc:
-                    print(f"ОШИБКА [{label}]: {exc}", file=sys.stderr)
-                    continue
+                    try:
+                        data = run_once(
+                            args.binary,
+                            config_path,
+                            threads,
+                            cores,
+                            processes,
+                            args.launcher,
+                            taskset,
+                        )
+                    except RuntimeError as exc:
+                        print(f"ОШИБКА [{label}]: {exc}", file=sys.stderr)
+                        continue
 
-                report = verify(config, expected, data)
+                    report = verify(config, expected, data)
 
-                if not report.ok:
-                    print(f"[{label}] VERIFICATION FAILED:", file=sys.stderr)
-                    for error in report.errors:
-                        print(f"  - {error}", file=sys.stderr)
-                    continue
+                    if not report.ok:
+                        print(f"[{label}] VERIFICATION FAILED:", file=sys.stderr)
+                        for error in report.errors:
+                            print(f"  - {error}", file=sys.stderr)
+                        continue
 
-                append_result(args.results_file, data, cores)
-                ok += 1
-                print(f"[{label}] VERIFICATION OK")
+                    append_result(args.results_file, data, cores)
+                    ok += 1
+                    print(f"[{label}] VERIFICATION OK")
 
     print(f"Готово: {ok}/{total} прогонов записаны в {args.results_file}")
 

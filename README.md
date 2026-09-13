@@ -4,6 +4,7 @@
 
 - [**Лабораторная работа 1**](reports/lab_01/README.md) — последовательная версия.
 - [**Лабораторная работа 2**](reports/lab_02/README.md) — параллельная версия на OpenMP.
+- [**Лабораторная работа 3**](reports/lab_03/README.md) — параллельная версия на MPI.
 
 ## О чём репозиторий
 
@@ -63,7 +64,7 @@
 ```bash
 python -m venv .venv
 source .venv/bin/activate        # Linux / macOS
-# .venv\Scripts\Activate.ps1     # Windows (PowerShell)
+# .venv\Scripts\activate.bat     # Windows
 
 pip install --upgrade pip
 pip install -r requirements.txt
