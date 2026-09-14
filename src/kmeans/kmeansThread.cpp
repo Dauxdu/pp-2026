@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <thread>
+#include <vector>
 
 #include "CycleTimer.h"
 
@@ -68,33 +69,52 @@ double dist(double *x, double *y, int nDim)
 /**
  * Assigns each data point to its "closest" cluster centroid.
  */
-void computeAssignments(WorkerArgs *const args)
+static void assignRange(WorkerArgs *const args)
 {
-  double *minDist = new double[args->M];
-
-  // Initialize arrays
-  for (int m = 0; m < args->M; m++)
+  for (int m = args->start; m < args->end; m++)
   {
-    minDist[m] = 1e30;
-    args->clusterAssignments[m] = -1;
-  }
-
-  // Assign datapoints to closest centroids
-  for (int k = args->start; k < args->end; k++)
-  {
-    for (int m = 0; m < args->M; m++)
+    double minDist = 1e30;
+    int best = -1;
+    double *point = &args->data[m * args->N];
+    for (int k = 0; k < args->K; k++)
     {
-      double d = dist(&args->data[m * args->N],
-                      &args->clusterCentroids[k * args->N], args->N);
-      if (d < minDist[m])
+      double d = dist(point, &args->clusterCentroids[k * args->N], args->N);
+      if (d < minDist)
       {
-        minDist[m] = d;
-        args->clusterAssignments[m] = k;
+        minDist = d;
+        best = k;
       }
     }
+    args->clusterAssignments[m] = best;
+  }
+}
+
+void computeAssignments(WorkerArgs *const args)
+{
+  const int numThreads = std::max(1u, std::thread::hardware_concurrency());
+
+  std::vector<std::thread> workers;
+  std::vector<WorkerArgs> threadArgs(numThreads, *args);
+  workers.reserve(numThreads);
+
+  // Разбиение [0, M) на почти равные куски (остаток — по одной точке первым).
+  const int base = args->M / numThreads;
+  const int remainder = args->M % numThreads;
+  int cursor = 0;
+  for (int t = 0; t < numThreads; t++)
+  {
+    const int chunk = base + (t < remainder ? 1 : 0);
+    threadArgs[t].start = cursor;
+    threadArgs[t].end = cursor + chunk;
+    cursor += chunk;
   }
 
-  delete[] minDist;
+  // Поток 0 считаем в текущем потоке — на один spawn/join меньше.
+  for (int t = 1; t < numThreads; t++)
+    workers.emplace_back(assignRange, &threadArgs[t]);
+  assignRange(&threadArgs[0]);
+  for (auto &w : workers)
+    w.join();
 }
 
 /**
