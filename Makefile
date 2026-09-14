@@ -24,11 +24,14 @@ CORES ?= 1 2 4
 THREADS ?= 1 2 4 8
 THREADED_BACKENDS ?= openmp mpi
 MPI_LAUNCHER ?= mpirun
-
+BLOCK_SIZES ?= 64 128 256 512
+GRID_SIZES ?=
 ifeq ($(BACKEND),openmp)
   THREADED_ARGS = --threads $(THREADS) --cores $(CORES)
 else ifeq ($(BACKEND),mpi)
   THREADED_ARGS = --processes $(THREADS) --cores $(CORES) --launcher $(MPI_LAUNCHER)
+else ifeq ($(BACKEND),cuda)
+  THREADED_ARGS = --block-sizes $(BLOCK_SIZES) $(if $(GRID_SIZES),--grid-sizes $(GRID_SIZES),)
 else
   THREADED_ARGS =
 endif

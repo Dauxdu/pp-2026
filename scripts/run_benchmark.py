@@ -46,6 +46,8 @@ def run_once(
     processes: int | None,
     launcher: str,
     taskset: str | None,
+    block_size: int | None = None,
+    grid_size: int | None = None,
 ) -> dict:
     """Запускает бинарник и читает его JSON-результат."""
     fd, tmp_name = tempfile.mkstemp(suffix=".json")
@@ -65,6 +67,10 @@ def run_once(
 
     if threads is not None:
         cmd += ["--threads", str(threads)]
+    if block_size is not None:
+        cmd += ["--block-size", str(block_size)]
+    if grid_size is not None:
+        cmd += ["--grid-size", str(grid_size)]
 
     try:
         try:
@@ -129,6 +135,20 @@ def parse_args() -> argparse.Namespace:
         default="mpirun",
         help="Команда запуска MPI-задачи.",
     )
+    parser.add_argument(
+        "--block-sizes",
+        nargs="*",
+        type=int,
+        default=None,
+        help="Список размеров блока CUDA (--block-size бинарнику). Несовместимо с --threads/--processes.",
+    )
+    parser.add_argument(
+        "--grid-sizes",
+        nargs="*",
+        type=int,
+        default=None,
+        help="Список размеров сетки CUDA (--grid-size бинарнику). Пусто -> бинарник посчитает сам.",
+    )
 
     return parser.parse_args()
 
@@ -146,9 +166,13 @@ def main() -> None:
     threads_grid: list[int | None] = args.threads if args.threads else [None]
     cores_grid: list[int | None] = args.cores if args.cores else [None]
     processes_grid: list[int | None] = args.processes if args.processes else [None]
+    block_sizes_grid: list[int | None] = (
+        args.block_sizes if args.block_sizes else [None]
+    )
+    grid_sizes_grid: list[int | None] = args.grid_sizes if args.grid_sizes else [None]
 
     if args.threads and args.processes:
-        raise SystemExit("--threads и --processes взаимоисключающие")
+        raise SystemExit("--threads и --processes взаимоисключающие (OpenMP vs MPI)")
 
     total = ok = 0
 
@@ -170,40 +194,60 @@ def main() -> None:
         for cores in cores_grid:
             for threads in threads_grid:
                 for processes in processes_grid:
-                    label = (
-                        f"size={size}"
-                        + (f" threads={threads}" if threads is not None else "")
-                        + (f" processes={processes}" if processes is not None else "")
-                        + (f" cores={cores}" if cores is not None else "")
-                    )
+                    for block_size in block_sizes_grid:
+                        for grid_size in grid_sizes_grid:
+                            label = (
+                                f"size={size}"
+                                + (f" threads={threads}" if threads is not None else "")
+                                + (
+                                    f" processes={processes}"
+                                    if processes is not None
+                                    else ""
+                                )
+                                + (
+                                    f" block_size={block_size}"
+                                    if block_size is not None
+                                    else ""
+                                )
+                                + (
+                                    f" grid_size={grid_size}"
+                                    if grid_size is not None
+                                    else ""
+                                )
+                                + (f" cores={cores}" if cores is not None else "")
+                            )
 
-                    total += 1
+                            total += 1
 
-                    try:
-                        data = run_once(
-                            args.binary,
-                            config_path,
-                            threads,
-                            cores,
-                            processes,
-                            args.launcher,
-                            taskset,
-                        )
-                    except RuntimeError as exc:
-                        print(f"ОШИБКА [{label}]: {exc}", file=sys.stderr)
-                        continue
+                            try:
+                                data = run_once(
+                                    args.binary,
+                                    config_path,
+                                    threads,
+                                    cores,
+                                    processes,
+                                    args.launcher,
+                                    taskset,
+                                    block_size,
+                                    grid_size,
+                                )
+                            except RuntimeError as exc:
+                                print(f"ОШИБКА [{label}]: {exc}", file=sys.stderr)
+                                continue
 
-                    report = verify(config, expected, data)
+                            report = verify(config, expected, data)
 
-                    if not report.ok:
-                        print(f"[{label}] VERIFICATION FAILED:", file=sys.stderr)
-                        for error in report.errors:
-                            print(f"  - {error}", file=sys.stderr)
-                        continue
+                            if not report.ok:
+                                print(
+                                    f"[{label}] VERIFICATION FAILED:", file=sys.stderr
+                                )
+                                for error in report.errors:
+                                    print(f"  - {error}", file=sys.stderr)
+                                continue
 
-                    append_result(args.results_file, data, cores)
-                    ok += 1
-                    print(f"[{label}] VERIFICATION OK")
+                            append_result(args.results_file, data, cores)
+                            ok += 1
+                            print(f"[{label}] VERIFICATION OK")
 
     print(f"Готово: {ok}/{total} прогонов записаны в {args.results_file}")
 

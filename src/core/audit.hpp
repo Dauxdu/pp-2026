@@ -93,6 +93,8 @@ public:
         const auto it = id_by_hash_.find(hash);
         return it == id_by_hash_.end() ? nullptr : &it->second;
     }
+
+    const std::unordered_map<std::string, int> &entries() const { return id_by_hash_; }
 };
 
 // Преобразует индекс в пароль по алфавиту.
@@ -186,6 +188,8 @@ struct AuditResult
     std::uint64_t candidates_checked = 0;
     double time_seconds = 0.0;
     int num_threads = 1;
+    int block_size = 0; // CUDA потоков в блоке
+    int grid_size = 0;  // CUDA число блоков
     std::vector<Match> matches;
 
     double throughput_per_second() const
@@ -205,6 +209,10 @@ struct AuditResult
         out["candidates_checked"] = candidates_checked;
         out["time_seconds"] = time_seconds;
         out["threads"] = num_threads;
+        if (block_size > 0)
+            out["block_size"] = block_size;
+        if (grid_size > 0)
+            out["grid_size"] = grid_size;
         out["throughput_per_second"] = throughput_per_second();
         out["matches"] = nlohmann::json::array();
 
