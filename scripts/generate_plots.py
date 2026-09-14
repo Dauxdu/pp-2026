@@ -73,6 +73,8 @@ class RunResult:
     throughput_per_second: float
     threads: int
     cores: int
+    block_size: int | None = None
+    grid_size: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "RunResult":
@@ -84,6 +86,8 @@ class RunResult:
             throughput_per_second=data["throughput_per_second"],
             threads=data.get("threads", 1),
             cores=data.get("cores", 1),
+            block_size=data.get("block_size"),
+            grid_size=data.get("grid_size"),
         )
 
 
@@ -440,8 +444,91 @@ def plot_grid(results: list[RunResult], figures_dir: Path) -> None:
         print("Пропускаю time_by_size_scaling.png: нет точек с cores == threads")
 
 
+def plot_cuda(results: list[RunResult], figures_dir: Path) -> None:
+    block_sizes = sorted({r.block_size for r in results if r.block_size})
+    by_size: dict[int, dict[int, RunResult]] = defaultdict(dict)
+    for r in results:
+        if r.block_size is not None:
+            by_size[r.size_code][r.block_size] = r
+    size_codes = sorted(by_size)
+
+    # 1-2) Время и производительность по размеру задачи, одна линия на block_size.
+    time_series, throughput_series = [], []
+    for bs in block_sizes:
+        xs = [by_size[s][bs].candidates / 1e6 for s in size_codes if bs in by_size[s]]
+        time_series.append(
+            (
+                f"block={bs}",
+                xs,
+                [by_size[s][bs].time_seconds for s in size_codes if bs in by_size[s]],
+            )
+        )
+        throughput_series.append(
+            (
+                f"block={bs}",
+                xs,
+                [
+                    by_size[s][bs].throughput_per_second / 1e6
+                    for s in size_codes
+                    if bs in by_size[s]
+                ],
+            )
+        )
+
+    render_plots(
+        [
+            PlotSpec(
+                "time_by_size.png",
+                "Время выполнения vs Размер задачи",
+                "Количество кандидатов, млн",
+                "Время, сек (лог. шкала)",
+                time_series,
+                y_log=True,
+            ),
+            PlotSpec(
+                "throughput_by_size.png",
+                "Производительность vs Размер задачи",
+                "Количество кандидатов, млн",
+                "Производительность, млн канд/сек",
+                throughput_series,
+            ),
+        ],
+        figures_dir,
+    )
+
+    # 3) Время по block_size — есть ли оптимум по размеру блока; несколько
+    # представительных размеров задачи (мин/медиана/макс), а не все 13, —
+    # иначе график превращается в кашу из линий.
+    representative = sorted(
+        {size_codes[0], size_codes[len(size_codes) // 2], size_codes[-1]}
+    )
+    block_series = []
+    for s in representative:
+        xs = [bs for bs in block_sizes if bs in by_size[s]]
+        block_series.append(
+            (f"size_code={s}", xs, [by_size[s][bs].time_seconds for bs in xs])
+        )
+
+    render_plots(
+        [
+            PlotSpec(
+                "time_by_block_size.png",
+                "Время выполнения vs Размер блока",
+                "Число потоков в блоке (размер блока)",
+                "Время, сек (лог. шкала)",
+                block_series,
+                x_log=False,
+                y_log=True,
+            ),
+        ],
+        figures_dir,
+    )
+
+
 def plot_results(results: list[RunResult], figures_dir: Path) -> None:
-    if len({(r.cores, r.threads) for r in results}) <= 1:
+    if any(r.block_size for r in results):
+        plot_cuda(results, figures_dir)
+    elif len({(r.cores, r.threads) for r in results}) <= 1:
         plot_single_threaded(results, figures_dir)
     else:
         plot_grid(results, figures_dir)
