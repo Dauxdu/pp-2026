@@ -6,6 +6,7 @@
 - [**Лабораторная работа 2**](reports/lab_02/README.md) — параллельная версия на OpenMP.
 - [**Лабораторная работа 3**](reports/lab_03/README.md) — параллельная версия на MPI.
 - [**Лабораторная работа 4**](reports/lab_04/README.md) — параллельная версия на CUDA.
+- [**Лабораторная работа 5**](reports/lab_05/README.md) — Making `K-Means` Faster
 
 ## О чём репозиторий
 
