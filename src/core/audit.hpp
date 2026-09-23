@@ -3,7 +3,9 @@
 #include <nlohmann/json.hpp>
 #include <chrono>
 #include <cstdint>
-#include <filesystem>
+#include <cstdlib>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <fstream>
 #include <stdexcept>
 #include <string>
@@ -21,14 +23,14 @@ struct AuditConfig
     std::uint64_t range_begin = 0;
     std::uint64_t range_end = 0;
     int size_code = -1;
-    std::filesystem::path targets_file;
+    std::string targets_file;
 
-    static AuditConfig load(const std::filesystem::path &path)
+    static AuditConfig load(const std::string &path)
     {
         std::ifstream stream(path);
         if (!stream)
         {
-            throw std::runtime_error("не удалось открыть файл конфигурации: " + path.string());
+            throw std::runtime_error("не удалось открыть файл конфигурации: " + path);
         }
 
         const nlohmann::json j = nlohmann::json::parse(stream);
@@ -43,9 +45,19 @@ struct AuditConfig
         config.range_end = j.at("range_end").get<std::uint64_t>();
         config.size_code = j.value("size_code", -1);
 
-        std::filesystem::path targets_path = j.at("targets_file").get<std::string>();
+        std::string targets_path = j.at("targets_file").get<std::string>();
         // Относительный путь считаем от каталога конфигурации.
-        config.targets_file = targets_path.is_relative() ? path.parent_path() / targets_path : targets_path;
+        if (!targets_path.empty() && targets_path[0] == '/')
+        {
+            config.targets_file = targets_path;
+        }
+        else
+        {
+            std::string dir = path;
+            const std::size_t slash = dir.find_last_of('/');
+            dir = (slash == std::string::npos) ? std::string(".") : dir.substr(0, slash);
+            config.targets_file = dir + "/" + targets_path;
+        }
 
         if (config.charset.size() < 2 || config.password_length < 1 || config.range_end <= config.range_begin)
         {
@@ -65,12 +77,12 @@ private:
     std::unordered_map<std::string, int> id_by_hash_;
 
 public:
-    static TargetIndex load(const std::filesystem::path &path)
+    static TargetIndex load(const std::string &path)
     {
         std::ifstream stream(path);
         if (!stream)
         {
-            throw std::runtime_error("не удалось открыть файл с целевыми хэшами: " + path.string());
+            throw std::runtime_error("не удалось открыть файл с целевыми хэшами: " + path);
         }
 
         TargetIndex index;
@@ -147,6 +159,10 @@ struct Match
     int id = 0;
     std::string password;
     std::string hash;
+
+    Match() {}
+    Match(int id_, const std::string &password_, const std::string &hash_)
+        : id(id_), password(password_), hash(hash_) {}
 };
 
 // Смежный кусок диапазона [begin, end).
@@ -154,6 +170,9 @@ struct RangeChunk
 {
     std::uint64_t begin = 0;
     std::uint64_t end = 0;
+
+    RangeChunk() {}
+    RangeChunk(std::uint64_t b, std::uint64_t e) : begin(b), end(e) {}
 };
 
 // Делит диапазон на части, остаток распределяется первым кускам.
@@ -197,7 +216,7 @@ struct AuditResult
         return time_seconds > 0.0 ? static_cast<double>(candidates_checked) / time_seconds : 0.0;
     }
 
-    void write(const std::filesystem::path &path) const
+    void write(const std::string &path) const
     {
         nlohmann::json out;
         out["program"] = backend;
@@ -221,15 +240,20 @@ struct AuditResult
             out["matches"].push_back({{"id", m.id}, {"password", m.password}, {"hash", m.hash}});
         }
 
-        if (path.has_parent_path())
+        const std::size_t slash = path.find_last_of('/');
+        if (slash != std::string::npos)
         {
-            std::filesystem::create_directories(path.parent_path());
+            const std::string dir = path.substr(0, slash);
+            std::string cmd = "mkdir -p '" + dir + "'";
+            if (std::system(cmd.c_str()) != 0)
+            { /* каталог, возможно, уже есть */
+            }
         }
 
         std::ofstream ofs(path);
         if (!ofs)
         {
-            throw std::runtime_error("не удалось открыть файл для записи результатов: " + path.string());
+            throw std::runtime_error("не удалось открыть файл для записи результатов: " + path);
         }
         ofs << out.dump(2) << "\n";
     }
