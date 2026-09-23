@@ -1,3 +1,5 @@
+src/core/json.hpp
+
 .vs
 .vscode
 *.pdb
